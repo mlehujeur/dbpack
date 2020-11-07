@@ -1,0 +1,14 @@
+/dbtools.egg-info/
+.idea/
+*__pycache__
+*.sqlite
+*.kml
+*.xml
+*.png
+*.jpg
+*.mp4
+*.pdf
+*.npz
+*.npy
+*.pkl
+
