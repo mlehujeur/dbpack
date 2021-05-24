@@ -1,4 +1,7 @@
+import types
+from typing import Union
 import sqlite3, os
+import warnings
 from _sqlite3 import OperationalError
 import sys, traceback
 import numpy as np
@@ -22,6 +25,30 @@ class EmptySelection(OperationalError):
     pass
 
 
+class SelectionRow(object):
+    """
+    for the output of a selection command
+    attributes are the output columns as named by sqlite
+        in : select a, b, c from TABLE;
+        this object will store a, b, c for one line 
+        under self.a, self.b, self.c
+        
+        if some of the column names are not python compatible (e.g. count(*))
+        the values can be accessed using brackets and quotes 
+        self['count(*)']
+    """
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            self.__setattr__(key, value)
+            
+    def __getitem__(self, key):
+        return getattr(self, key)
+    
+    def degroup(self, key, separator=",", type=str):
+        self.__setattr__(key, 
+                         [type(_) for _ in self[key].split(separator)])
+    
+        
 def error_message():
     type, value, trace = sys.exc_info()
     message = "".join(traceback.format_exception(type, value, trace, limit=10))
@@ -95,9 +122,22 @@ class Database(object):
         self.cursor.close()
         self.connection.close()
 
+    def attach(self, sqlite_file, attachment_name):
+        assert os.path.isfile(sqlite_file), sqlite_file
+        self.execute(f'attach database "{sqlite_file}" as {attachment_name}')
+
+    def detach(self, attachment_name):
+        self.execute(f"detach {attachment_name}")
+
     def create_function(self):
+        warnings.warn('create_function deprecated, please use create_functions')
+        return self.create_functions()
+        
+    def create_functions(self):   
         """
         create convenient functions to use in sqlite commands
+        FLOOR : 
+        REAL
         LOG : compute the natural logarithm of a number,
               select LOG(COLUMN) from TABLE -> returns the logarithm of COLUMN
         SUBSTRING : isolate sub-string between indexs i (included) and j (excluded)
@@ -105,9 +145,14 @@ class Database(object):
               select SUBSTRING(COLUMN, 3, 3) -> returns COLUMN[3] (python indexation convention)
         DIVREST : return the rest of the Euclidian division
               select DIVREST(COLUMN, 12.) -> returns COLUMN % 12.
-        """
-        # compute the natural logarithm
+        """       
+        def floor(x):
+            return int(np.floor(x))
+        # natural logarithm
         self.connection.create_function("LOG", 1, np.log)
+        self.connection.create_function("SQRT", 1, np.sqrt)
+        self.connection.create_function("FLOOR", 1, floor)
+        self.connection.create_function("REAL", 1, float)
         self.connection.create_function("SUBSTRING", 3, substring)
         self.connection.create_function("DIVREST", 2, divrest)
 
@@ -196,7 +241,7 @@ class Database(object):
         self.cursor.executemany(*args, **kwargs)
 
     @staticmethod
-    def _selection_generator(item0, selection, cursortmp):
+    def _select_generator(item0, selection, cursortmp):
         try:
             yield item0
             for item in selection:
@@ -208,8 +253,12 @@ class Database(object):
                 # if the data base has been closed
                 pass
 
-    def select(self, sqlite_command, tup=None):
-
+    def select(self, sqlite_command: str, tup: Union[None, tuple] = None) -> Union[None,types.GeneratorType]:
+        """
+        execute a selection command,
+        return None if the selection has no data
+        return a generator of tuples otherwise
+        """
         cursortmp = self.connection.cursor()
         try:
             if tup is not None:
@@ -224,7 +273,7 @@ class Database(object):
                     printer('no output for selection\n{}'.format(sqlite_command))
                 return None
 
-            return self._selection_generator(item0, selection, cursortmp)
+            return self._select_generator(item0, selection, cursortmp)
 
         except (KeyboardInterrupt, OperationalError, Exception) as e:
             error_message = SQLITE_EXEC_ERROR_MESSAGE.format(
@@ -234,12 +283,58 @@ class Database(object):
             e.args = (error_message,)
             raise e  # Exception(error_message)
 
-    def selectscalar(self, sqlite_command, tup=None):
+    @staticmethod
+    def _selectasdict_generator(item0, selection, cursortmp):
+
+        column_names = [tup[0] for tup in cursortmp.description]     
+
+        assert len(item0) == len(column_names)
+        try:
+            dct = {key: value for key, value in zip(column_names, item0)}
+            yield SelectionRow(**dct)
+            for item in selection:
+                dct = {key: value for key, value in zip(column_names, item)}
+                yield SelectionRow(**dct)
+        finally:
+            try:
+                cursortmp.close()
+            except sqlite3.ProgrammingError:
+                # if the data base has been closed
+                pass
+
+    def select_as_dict(self, sqlite_command: str, tup: Union[None, tuple] = None) -> Union[None,types.GeneratorType]:
         """
-        :param args:
-        :param kwargs:
-        :return:
+        execute a selection command,
+        return None if the selection has no data
+        return a generator of dictionaries otherwise
         """
+        cursortmp = self.connection.cursor()
+
+        try:
+            if tup is not None:
+                selection = cursortmp.execute(sqlite_command, tup)
+
+            else:
+                selection = cursortmp.execute(sqlite_command)
+
+            item0 = selection.fetchone()
+
+            if item0 is None:
+                if self.verbose:
+                    printer('no output for selection\n{}'.format(sqlite_command))
+                return None
+
+            return self._selectasdict_generator(item0, selection, cursortmp)
+
+        except (KeyboardInterrupt, OperationalError, Exception) as e:
+            error_message = SQLITE_EXEC_ERROR_MESSAGE.format(
+                sqlite_command=sqlite_command,
+                error_message=str(e))
+
+            e.args = (error_message,)
+            raise e  # Exception(error_message)
+
+    def selectscalar(self, sqlite_command: str, tup: Union[None, tuple] = None):
         cursortmp = self.connection.cursor()
         try:
             if tup is not None:
@@ -256,10 +351,12 @@ class Database(object):
         if item0 is None:
             return None
 
-        value = item0[0]  # because fetchone will return (value, )
+        value, = item0  # because fetchone will return (value, )
         return value
 
-    def select2array(self, cmd, dtype, tup=None):
+    def select2array(
+            self, sqlite_command: str, dtype: np.dtype,
+            tup: Union[None, tuple] = None) -> np.ndarray:
         """
         extract a column of data and store it into a numpy.array before returning
         the selection must select only one single column
@@ -269,19 +366,22 @@ class Database(object):
         :param tup: see self.select
         :return: numpy.array
         """
-        s = self.select(sqlite_command=cmd, tup=tup)
+        s = self.select(sqlite_command=sqlite_command, tup=tup)
         if s is None:
             return np.asarray([], dtype=dtype)
         return np.asarray([_[0] for _ in list(s)], dtype=dtype)
 
-    def select2arrays(self, cmd, dtypes, tup=None):
+    def select2arrays(
+            self, sqlite_command: str, dtypes: Union[list,np.ndarray],
+            tup: Union[None, tuple] = None) -> list:
         """
-        convert selection output to arrays with desired types
-        :param cmd: sqlite selection string
+        convert selection output to arrays with desired types,
+        return a list of arrays, one per column
+        :param sqlite_command: sqlite selection string
         :param dtypes: tuple of types, one per output column
         :param tup: tuple of arguments to pass to self.select (if cmd has ? in it)
         """
-        s = self.select(sqlite_command=cmd, tup=tup)
+        s = self.select(sqlite_command=sqlite_command, tup=tup)
         if s is None:
             return [np.asarray([], dtype=dtype) for dtype in dtypes]
 
@@ -296,6 +396,9 @@ class Database(object):
             ''', str))
 
         return tables
+
+    def column_names(self, table_name):
+        return [tup[1] for tup in self.cursor.execute(f'PRAGMA table_info({table_name});')]
 
 
 if __name__ == '__main__':

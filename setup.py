@@ -32,6 +32,6 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Operating System :: Linux",
     ],
-    scripts=[],
+    scripts=["dbtools/scripts/selection_columns.py"],
     install_requires=['numpy'],
     python_requires='>=3.7')

@@ -19,3 +19,7 @@ def divrest(x, y):
     :return:
     """
     return x % y
+
+
+def floor(x):
+    return int(np.floor(x))
