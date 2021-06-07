@@ -67,18 +67,19 @@ printer = printyellow
 
 class Database(object):
 
-    def __init__(self, sqlite_file, create=False, verbose=True, timeout=120.):
+    def __init__(self, sqlite_file: str, create: bool=False, verbose: bool=True, timeout: float=120.):
 
         if not create:
             if not os.path.isfile(sqlite_file):
                 raise OSError("{} not found, use create=True".format(sqlite_file))
 
-        self.sqlite_file = sqlite_file
-        self.connection = None
-        self.verbose = verbose
-        self.timeout = timeout
-        self.transaction = False
-        self.subtransaction = False  # for save points
+        self.sqlite_file: str = sqlite_file
+        self.connection: Union[None, sqlite3.Connection] = None
+        self.cursor: Union[None, sqlite3.Cursor] = None
+        self.verbose: bool = verbose
+        self.timeout: float = timeout
+        self.transaction: bool = False
+        self.subtransaction: bool = False  # for save points
 
     def __enter__(self):
         """enter the contextual environment (with), the connection is really open here, not in __init__"""
