@@ -11,4 +11,5 @@
 *.npz
 *.npy
 *.pkl
-
+/dist/
+/build/
