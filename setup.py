@@ -1,7 +1,6 @@
 import setuptools
 import os
 
-# fuck distutils2
 version_file = os.path.join('dbpack', 'version.py')
 if not os.path.isfile(version_file):
     raise IOError(version_file)
@@ -22,15 +21,16 @@ setuptools.setup(
     name="dbpack", # Replace with your own username
     version=__version__,
     author="Maximilien Lehujeur",
-    author_email="maximilien.lehujeur@gmail.com",
+    author_email="maximilien.lehujeur@univ-eiffel.fr",
     description="",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="",
+    license="MIT",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Operating System :: Linux",
+        "Operating System :: POSIX :: Linux",
     ],
     scripts=["dbpack/scripts/selection_columns.py"],
     install_requires=['numpy'],
