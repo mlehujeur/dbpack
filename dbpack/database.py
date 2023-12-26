@@ -5,8 +5,8 @@ import warnings
 from _sqlite3 import OperationalError
 import sys, traceback
 import numpy as np
-from dbtools.printcolors import printyellow, printblue
-from dbtools.sqlite_functions import divrest, substring
+from dbpack.printcolors import printyellow, printblue
+from dbpack.sqlite_functions import divrest, substring
 
 
 class NoTransactionOpen(OperationalError):

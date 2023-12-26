@@ -3,13 +3,13 @@
 Install
 ```
 # cd <to/installation/path> 
-git clone https://gitlab.com/obsmax/dbtools.git
+git clone https://gitlab.com/obsmax/dbpack.git
 
-conda remove --name py37-dbtools --all --yes
-conda create --name py37-dbtools python=3.7 --yes
-conda activate py37-dbtools
+conda remove --name py37-dbpack --all --yes
+conda create --name py37-dbpack python=3.7 --yes
+conda activate py37-dbpack
 
-cd dbtools
+cd dbpack
 python -m pip install -e .
 
 ```

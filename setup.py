@@ -2,7 +2,7 @@ import setuptools
 import os
 
 # fuck distutils2
-version_file = os.path.join('dbtools', 'version.py')
+version_file = os.path.join('dbpack', 'version.py')
 if not os.path.isfile(version_file):
     raise IOError(version_file)
 
@@ -19,7 +19,7 @@ with open("Readme.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="dbtools", # Replace with your own username
+    name="dbpack", # Replace with your own username
     version=__version__,
     author="Maximilien Lehujeur",
     author_email="maximilien.lehujeur@gmail.com",
@@ -32,6 +32,6 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Operating System :: Linux",
     ],
-    scripts=["dbtools/scripts/selection_columns.py"],
+    scripts=["dbpack/scripts/selection_columns.py"],
     install_requires=['numpy'],
     python_requires='>=3.7')

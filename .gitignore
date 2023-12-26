@@ -1,4 +1,4 @@
-/dbtools.egg-info/
+/dbpack.egg-info/
 .idea/
 *__pycache__
 *.sqlite

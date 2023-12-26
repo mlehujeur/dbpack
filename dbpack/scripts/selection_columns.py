@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import sys
-from dbtools import Database
+from dbpack import Database
 
 
 """
